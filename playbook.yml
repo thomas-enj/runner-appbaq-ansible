@@ -1,0 +1,6 @@
+---
+- name: Configure the self-hosted runner
+  hosts: all
+  become: true
+  roles:
+    - runner_setup

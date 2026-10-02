@@ -1,0 +1,43 @@
+---
+- name: Create runner directory
+  ansible.builtin.file:
+    path: /home/azureuser/actions-runner
+    state: directory
+    owner: azureuser
+    group: azureuser
+    mode: '0755'
+
+- name: Download and extract GitHub Actions Runner
+  ansible.builtin.unarchive:
+    src: https://github.com/actions/runner/releases/download/v2.320.0/actions-runner-linux-x64-2.320.0.tar.gz
+    dest: /home/azureuser/actions-runner
+    remote_src: true
+    owner: azureuser
+    group: azureuser
+    creates: /home/azureuser/actions-runner/config.sh
+
+- name: Configure the GitHub Runner
+  ansible.builtin.command: >
+    ./config.sh --url "https://github.com/{{ runner_setup_github_owner }}/{{ runner_setup_github_repo }}"
+    --token "{{ runner_setup_github_token }}" --unattended
+  args:
+    chdir: /home/azureuser/actions-runner
+    creates: /home/azureuser/actions-runner/.runner
+  become: true
+  become_user: azureuser
+  changed_when: true
+
+- name: Install runner service
+  ansible.builtin.command: ./svc.sh install
+  args:
+    chdir: /home/azureuser/actions-runner
+    creates: "/etc/systemd/system/actions.runner.{{ runner_setup_github_owner }}-{{ runner_setup_github_repo }}.*.service"
+  changed_when: true
+
+- name: Start runner service
+  ansible.builtin.command: ./svc.sh start
+  args:
+    chdir: /home/azureuser/actions-runner
+  register: start_runner
+  changed_when: start_runner.rc == 0
+  failed_when: false
