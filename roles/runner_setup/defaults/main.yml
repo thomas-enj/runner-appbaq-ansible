@@ -1,0 +1,5 @@
+---
+# Default variables for runner_setup role
+runner_setup_github_owner: "thomas-enj"
+runner_setup_github_repo: "appbaq-infra-terraform"
+# The registration token will be provided dynamically from the CI pipeline
