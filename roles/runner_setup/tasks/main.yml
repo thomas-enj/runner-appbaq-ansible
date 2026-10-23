@@ -40,16 +40,26 @@
   when: not runner_setup_binary.stat.exists or runner_setup_installed_version.stdout | trim != runner_setup_version
 
 - name: Configure the GitHub Runner
-  ansible.builtin.command: >
-    ./config.sh --url "https://github.com/{{ runner_setup_github_owner }}/{{ runner_setup_github_repo }}"
-    --token "{{ runner_setup_github_token }}" --unattended
-  args:
-    chdir: /home/azureuser/actions-runner
-    creates: /home/azureuser/actions-runner/.runner
-  become: true
-  become_user: azureuser
-  changed_when: true
-  no_log: true
+  block:
+    - name: Register the GitHub Runner
+      ansible.builtin.command: >
+        ./config.sh --url "https://github.com/{{ runner_setup_github_owner }}/{{ runner_setup_github_repo }}"
+        --token "{{ runner_setup_github_token }}" --unattended --replace
+      args:
+        chdir: /home/azureuser/actions-runner
+        creates: /home/azureuser/actions-runner/.runner
+      become: true
+      become_user: azureuser
+      register: runner_setup_registration
+      changed_when: true
+      no_log: true
+  rescue:
+    - name: Report runner registration failure without its token
+      ansible.builtin.fail:
+        msg: |
+          GitHub runner registration failed (rc={{ runner_setup_registration.rc | default('unknown') }}).
+          stdout: {{ runner_setup_registration.stdout | default('') | replace(runner_setup_github_token, '[REDACTED]') }}
+          stderr: {{ runner_setup_registration.stderr | default('') | replace(runner_setup_github_token, '[REDACTED]') }}
 
 - name: Install runner service
   ansible.builtin.command: ./svc.sh install
