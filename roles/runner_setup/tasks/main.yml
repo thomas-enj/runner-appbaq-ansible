@@ -64,4 +64,3 @@
     chdir: /home/azureuser/actions-runner
   register: start_runner
   changed_when: start_runner.rc == 0
-  failed_when: false
