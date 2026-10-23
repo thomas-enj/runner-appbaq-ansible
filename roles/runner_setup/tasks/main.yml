@@ -7,14 +7,37 @@
     group: azureuser
     mode: '0755'
 
-- name: Download and extract GitHub Actions Runner
+- name: Check for installed runner binary
+  ansible.builtin.stat:
+    path: /home/azureuser/actions-runner/bin/Runner.Listener
+  register: runner_setup_binary
+
+- name: Read installed runner version
+  ansible.builtin.command: /home/azureuser/actions-runner/bin/Runner.Listener --version
+  become: true
+  become_user: azureuser
+  register: runner_setup_installed_version
+  changed_when: false
+  when: runner_setup_binary.stat.exists
+
+- name: Download GitHub Actions Runner archive
+  ansible.builtin.get_url:
+    url: "https://github.com/actions/runner/releases/download/v{{ runner_setup_version }}/actions-runner-linux-x64-{{ runner_setup_version }}.tar.gz"
+    dest: "/home/azureuser/actions-runner-{{ runner_setup_version }}.tar.gz"
+    checksum: "{{ runner_setup_archive_checksum }}"
+    owner: azureuser
+    group: azureuser
+    mode: '0644'
+  when: not runner_setup_binary.stat.exists or runner_setup_installed_version.stdout | trim != runner_setup_version
+
+- name: Extract GitHub Actions Runner
   ansible.builtin.unarchive:
-    src: https://github.com/actions/runner/releases/download/v2.320.0/actions-runner-linux-x64-2.320.0.tar.gz
+    src: "/home/azureuser/actions-runner-{{ runner_setup_version }}.tar.gz"
     dest: /home/azureuser/actions-runner
     remote_src: true
     owner: azureuser
     group: azureuser
-    creates: /home/azureuser/actions-runner/config.sh
+  when: not runner_setup_binary.stat.exists or runner_setup_installed_version.stdout | trim != runner_setup_version
 
 - name: Configure the GitHub Runner
   ansible.builtin.command: >
@@ -26,6 +49,7 @@
   become: true
   become_user: azureuser
   changed_when: true
+  no_log: true
 
 - name: Install runner service
   ansible.builtin.command: ./svc.sh install
